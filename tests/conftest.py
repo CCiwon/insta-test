@@ -12,6 +12,7 @@ os.environ["OPENAI_MODEL"] = "gpt-4o-mini"
 os.environ["PUBLIC_BASE_URL"] = "https://test.ngrok-free.app"
 os.environ["DEFAULT_IMAGE_FILENAME"] = "post.jpg"
 os.environ["DEFAULT_CAPTION"] = "테스트 캡션"
+os.environ["ADMIN_API_KEY"] = "test_admin_key"
 os.environ["ENV"] = "development"
 
 

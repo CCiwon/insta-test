@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.config import get_settings
 from app.schemas.publish import PublishRequest, PublishResponse
 from app.services.content_service import ContentService
 from app.services.instagram_publish_service import InstagramPublishService
@@ -12,8 +15,21 @@ content_service = ContentService()
 media_service = MediaService()
 publish_service = InstagramPublishService()
 
+_bearer = HTTPBearer()
 
-@router.post("/feed", response_model=PublishResponse)
+
+def verify_api_key(
+    credentials: HTTPAuthorizationCredentials = Security(_bearer),
+) -> None:
+    expected = get_settings().admin_api_key
+    if credentials.credentials != expected:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized",
+        )
+
+
+@router.post("/feed", response_model=PublishResponse, dependencies=[Depends(verify_api_key)])
 async def publish_feed(
     payload: PublishRequest,
 ) -> PublishResponse:
@@ -26,7 +42,7 @@ async def publish_feed(
         logger.error("피드 게시 실패 | error=%s", str(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Feed publish failed: {e}",
+            detail="Feed publish failed",
         ) from e
 
     return PublishResponse(
@@ -36,7 +52,7 @@ async def publish_feed(
     )
 
 
-@router.post("/story", response_model=PublishResponse)
+@router.post("/story", response_model=PublishResponse, dependencies=[Depends(verify_api_key)])
 async def publish_story(
     payload: PublishRequest,
 ) -> PublishResponse:
@@ -48,7 +64,7 @@ async def publish_story(
         logger.error("스토리 게시 실패 | error=%s", str(e))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Story publish failed: {e}",
+            detail="Story publish failed",
         ) from e
 
     return PublishResponse(

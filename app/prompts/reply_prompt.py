@@ -1,3 +1,5 @@
+import re
+
 SYSTEM_PROMPT_TEMPLATE = """
 당신은 {persona}입니다.
 인스타그램 게시물에 달린 팔로워의 댓글에 진심 어린 답글을 작성합니다.
@@ -17,8 +19,33 @@ USER_PROMPT_TEMPLATE = """
 각 후보는 번호 없이 줄바꿈으로 구분해주세요.
 """.strip()
 
+# 댓글 최대 허용 길이 (GPT 토큰 비용 및 프롬프트 인젝션 방어)
+_MAX_COMMENT_LENGTH = 500
+
+
+def sanitize_comment(text: str) -> str:
+    """
+    GPT 프롬프트 삽입 전 댓글 텍스트를 정제한다.
+
+    - 최대 길이 초과 시 자름
+    - 프롬프트 구조를 깨는 큰따옴표를 단따옴표로 치환
+    - 역할 전환을 시도하는 대표 패턴 제거
+    """
+    text = text.strip()
+    text = text[:_MAX_COMMENT_LENGTH]
+    # 프롬프트 구분자(큰따옴표) 이스케이프
+    text = text.replace('"', "'")
+    # "Ignore previous instructions" 류 인젝션 패턴 제거
+    text = re.sub(
+        r'(?i)(ignore|forget|disregard)\s+(all\s+)?(previous|prior|above|system)\s+(instructions?|prompts?|rules?)',
+        '[filtered]',
+        text,
+    )
+    return text
+
 
 def build_messages(comment_text: str, persona: str) -> list[dict[str, str]]:
+    safe_text = sanitize_comment(comment_text)
     return [
         {
             "role": "system",
@@ -26,6 +53,6 @@ def build_messages(comment_text: str, persona: str) -> list[dict[str, str]]:
         },
         {
             "role": "user",
-            "content": USER_PROMPT_TEMPLATE.format(comment_text=comment_text),
+            "content": USER_PROMPT_TEMPLATE.format(comment_text=safe_text),
         },
     ]

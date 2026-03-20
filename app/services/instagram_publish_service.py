@@ -40,50 +40,52 @@ class InstagramPublishService:
         media_type: str | None,
     ) -> str:
         url = f"{GRAPH_API_BASE}/{self._user_id}/media"
-        params: dict[str, str] = {
+        # access_token은 POST body(form data)로 전송 — URL 쿼리스트링 노출 방지
+        data: dict[str, str] = {
             "image_url": image_url,
             "access_token": self._access_token,
         }
         if caption:
-            params["caption"] = caption
+            data["caption"] = caption
         if media_type:
-            params["media_type"] = media_type
+            data["media_type"] = media_type
 
-        data = await self._post_with_retry(url, params)
+        result = await self._post_with_retry(url, data)
 
-        creation_id = data.get("id")
+        creation_id = result.get("id")
         if not creation_id:
             raise RuntimeError("미디어 컨테이너 생성 실패: id 없음")
         return creation_id
 
     async def _publish_container(self, creation_id: str) -> str:
         url = f"{GRAPH_API_BASE}/{self._user_id}/media_publish"
-        params = {
+        # access_token은 POST body(form data)로 전송 — URL 쿼리스트링 노출 방지
+        data = {
             "creation_id": creation_id,
             "access_token": self._access_token,
         }
-        data = await self._post_with_retry(url, params)
+        result = await self._post_with_retry(url, data)
 
-        media_id = data.get("id")
+        media_id = result.get("id")
         if not media_id:
             raise RuntimeError("미디어 퍼블리시 실패: id 없음")
         logger.info("미디어 퍼블리시 성공 | media_id=%s", media_id)
         return media_id
 
-    async def _post_with_retry(self, url: str, params: dict[str, str]) -> dict:
+    async def _post_with_retry(self, url: str, data: dict[str, str]) -> dict:
         last_error: Exception | None = None
         for attempt in range(1, self._max_attempts + 1):
             try:
                 async with httpx.AsyncClient(timeout=15.0) as client:
-                    response = await client.post(url, params=params)
+                    # data= 사용으로 POST body에 전송 (URL에 토큰 미노출)
+                    response = await client.post(url, data=data)
                     response.raise_for_status()
                     return response.json()
             except (httpx.HTTPError, ValueError) as e:
                 last_error = e
                 logger.warning(
-                    "Instagram API 요청 실패 | attempt=%s | url=%s | error=%s",
+                    "Instagram API 요청 실패 | attempt=%s | error=%s",
                     attempt,
-                    url,
                     str(e),
                 )
 

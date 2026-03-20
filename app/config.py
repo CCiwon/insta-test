@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     default_image_filename: str = "post.jpg"
     default_caption: str = "안녕하세요! 오늘의 포스팅입니다 :)"
 
+    # 관리자 API 키 (publish 엔드포인트 인증)
+    admin_api_key: str
+
     # 환경
     env: str = "development"
 
